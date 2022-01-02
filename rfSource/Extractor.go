@@ -49,49 +49,38 @@ func MinEntropy(data string) float64 { // calculates the min-entropy of a bit st
 }
 
 func debaisData(data string, outputName string) {
+	var cxt context.Context
+	
+	reader := bytes.NewReader([]byte(rawdata))
 
-	var numBytesWritten int
+	pr, cxt, _ := debias.Kaminsky(reader, false, 512) //debaises data
 
-	reader := bytes.NewReader([]byte(data))
 
-	pr, _, _ := debias.Kaminsky(reader, false, 512)
+	<- cxt.Done()   //once its done debaising
 
-	f, err := os.Create(outputName)
+	f, err := os.Open(outputName)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	data, err := ioutil.ReadAll(pr)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for { //writes the conditioned data to the file
-		var data = make([]byte, len(data))
-
-		n, err := pr.Read(data)
-
-		if err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				fmt.Println(err)
-				break
-			}
-			log.Fatal(err)
-		}
-
-		data = data[:n]
-
-		// write output buffer
-		n, err = f.Write(data)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		numBytesWritten += n
-	}
-
-	// close output file handle
-	err = f.Close()
+	n, err := f.Write(data)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	fmt.Print("Wrote:%s bytes",  n)
+
+	err = f.Close() //close file
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func convertBinary(input []int) string {
