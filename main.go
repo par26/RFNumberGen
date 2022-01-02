@@ -4,15 +4,17 @@ import (
 	"fmt"
 	"log"
 	"os"
+
+	"github.com/rocketmind26/EntropyRandomNumberGen/rfsource"
 )
 
 func main() {
 
-	sdrSource := NewSdrSource("C:/test1.wav", 20480)
+	sdrSource := rfsource.NewSdrSource("C:/test1.wav", 20480)
 	sdrSource.GetWavData()
 	outPutEntropy(sdrSource.SdrBuffer, "/data.txt")
 
-	ExtractEntropy(sdrSource.SdrBuffer, .20, "outputfilename")
+	rfsource.ExtractEntropy(sdrSource.SdrBuffer, .20, "outputfilename")
 }
 
 /*func outputData(data []byte, directory string) {
@@ -62,3 +64,4 @@ func outPutEntropy(input []int, directory string) {
 
 	fmt.Print("Finished writing data to the file")
 }
+
