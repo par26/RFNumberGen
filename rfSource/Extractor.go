@@ -2,96 +2,78 @@ package rfsource
 
 import (
 	"bytes"
+	"encoding/binary"
+	"encoding/gob"
 	"fmt"
-	"io"
 	"log"
-	"math"
 	"os"
 	"strconv"
 
 	"github.com/dreadl0ck/debias"
 )
 
-func ExtractEntropy(rawData []int, LowPosEntrop float64, outputFile string) {
-	var bitString string
-
-	var minEntropy float64
-
-	bitString = convertBinary(rawData)
-
-	minEntropy = MinEntropy(bitString)
-
-	if minEntropy < LowPosEntrop {
-		log.Panic("Error: Insufficent Min-Entropy\nShutting Program down")
-	}
-
-	debaisData(bitString, outputFile)
+func ExtractEntropy(rawdata []int, outputFile string) {
+	WriteToFile(rawdata, outputFile)
 }
 
-func MinEntropy(data string) float64 { // calculates the min-entropy of a bit string
+func debaisData(rawdata []int) []byte {
 
-	var numberOnes int
-	var numberBits int
-	var OnesToZero float64
+	stringData := convertToString(rawdata)
 
-	for _, value := range data { //find the number of ones in the bit string
+	buffer := &bytes.Buffer{}
 
-		numberBits++
+	gob.NewEncoder(buffer).Encode(stringData)
+	byteSlice := buffer.Bytes()
 
-		if value == '1' {
-			numberOnes++
-		}
+	reader := bytes.NewReader(byteSlice)
+
+	pr, _, _ := debias.Kaminsky(reader, false, int64(debias.MaxChunkSize)) //debaises data
+
+	var data = make([]byte, len(rawdata))
+	n, err := pr.Read(data)
+	if err != nil {
+		log.Fatal(err)
 	}
+	data = data[:n]
 
-	OnesToZero = float64(numberOnes / numberBits)
-
-	return -math.Log2(OnesToZero)
+	return data
 }
 
-func debaisData(data string, outputName string) {
-	var cxt context.Context
-	
-	reader := bytes.NewReader([]byte(rawdata))
+func convertToString(input []int) []string {
+	output := make([]string, len(input))
 
-	pr, cxt, _ := debias.Kaminsky(reader, false, 512) //debaises data
+	var stringval string
 
-
-	<- cxt.Done()   //once its done debaising
-
-	f, err := os.Open(outputName)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-	
-	data, err := ioutil.ReadAll(pr)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	n, err := f.Write(data)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Print("Wrote:%s bytes",  n)
-
-	err = f.Close() //close file
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func convertBinary(input []int) string {
-
-	var (
-		output string
-	)
-
-	for _, value := range input {
-		output += strconv.FormatInt(int64(value), 2)
+	for i := 0; i < len(input); i++ {
+		stringval = strconv.Itoa(input[i])
+		output = append(output, stringval)
 	}
 
 	return output
+}
+
+func WriteToFile(input []int, directory string) { //writes to a bin file
+
+	buf := new(bytes.Buffer)
+
+	data := debaisData(input)
+
+	err := binary.Write(buf, binary.LittleEndian, data)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	f, err := os.OpenFile(directory, os.O_RDWR, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	n, err := f.Write(buf.Bytes())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Number Bytes outputed", n)
+
+	defer f.Close()
 }
